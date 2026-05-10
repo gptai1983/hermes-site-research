@@ -8,13 +8,11 @@ export interface HermesResult {
 }
 
 export async function executeResearchTask(sessionId: number, prompt: string): Promise<HermesResult> {
-  console.log(`[HermesService] Starting task ${sessionId}: ${prompt}`);
+  console.log(`[HermesService] Starting task ${sessionId}`);
 
   return new Promise((resolve) => {
-    const hermes = spawn('hermes', [
-      '-z', prompt,
-    ], {
-      shell: true,
+    const hermes = spawn('hermes', ['-z', prompt], {
+      shell: false,
       timeout: 120000,
     });
 
