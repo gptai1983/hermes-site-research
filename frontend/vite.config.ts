@@ -5,9 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: '0.0.0.0',
     proxy: {
       '/trpc': {
-        target: 'http://172.21.47.227:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },
