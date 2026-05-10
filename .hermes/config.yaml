@@ -1,46 +1,35 @@
+model:
+  default: groq/llama-3.3-70b-versatile
+  provider: groq
 providers:
   groq:
-    type: openai_compatible
-    base_url: "https://api.groq.com/openai/v1"
-    api_key: "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"
-    models:
-      - name: "llama-3.3-70b-versatile"
-        context_window: 128000
-      - name: "llama-3.1-8b-instant"
-        context_window: 128000
-
-  opencode-zen:
-    type: openai_compatible
-    base_url: "https://opencode.ai/zen/v1"
-    api_key: "sk-F4WT0sIpucNITq7kKN6ivZLNRTn8ySYy8AOBYdA2dCjIEYqlYNWQIesIuHbOuiXf"
-    models:
-      - name: "big-pickle"
-        context_window: 128000
-      - name: "minimax-m2.5-free"
-        context_window: 128000
-
+    api_key: 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
+    model: llama-3.3-70b-versatile
+  opencode:
+    api_key: sk-F4WT0sIpucNITq7kKN6ivZLNRTn8ySYy8AOBYdA2dCjIEYqlYNWQIesIuHbOuiXf
+    model: big-pickle
+    base_url: https://opencode.ai/zen/v1
   gemini:
-    type: openai_compatible
-    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
-    api_key: "AIzaSyA-hDSlDFbqk0CGsX2JB6xN21mUsaVGRts"
-    models:
-      - name: "gemini-1.5-flash"
-        context_window: 128000
-
-routing:
-  enabled: true
-  fallback_chain:
-    - provider: "groq"
-    - provider: "opencode-zen"
-    - provider: "gemini"
-  
-  rules:
-    - if: "contains('код') OR contains('python') OR contains('js') OR contains('code') OR contains('script')"
-      use: "opencode-zen/big-pickle"
-    - if: "contains('картинка') OR contains('скриншот') OR contains('image') OR contains('screenshot') OR contains('vision')"
-      use: "gemini/gemini-1.5-flash"
-    - default:
-      use: "groq/llama-3.3-70b-versatile"
-
-default_provider: "groq"
-default_model: "llama-3.3-70b-versatile"
+    api_key: AIzaSyA-hDSlDFbqk0CGsX2JB6xN21mUsaVGRts
+    model: gemini-1.5-flash
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+fallback_providers:
+  - groq
+  - opencode
+  - gemini
+toolsets:
+- hermes-cli
+agent:
+  max_turns: 60
+  gateway_timeout: 1800
+  restart_drain_timeout: 180
+  api_max_retries: 3
+  service_tier: ''
+  tool_use_enforcement: auto
+  gateway_timeout_warning: 900
+  gateway_notify_interval: 180
+  gateway_auto_continue_freshness: 3600
+  image_input_mode: auto
+  disabled_toolsets: []
+  verbose: false
+  reasoning_effort: medium
