@@ -12,10 +12,10 @@ export async function executeResearchTask(sessionId: number, prompt: string): Pr
 
   return new Promise((resolve) => {
     const hermes = spawn('hermes', [
-      'agent', 'run',
-      prompt,
-      '--output-format', 'json',
-      '--no-stream'
+      'chat',
+      '-z', prompt,
+      '--provider', 'groq',
+      '--model', 'llama-3.3-70b-versatile',
     ], {
       shell: true,
       timeout: 120000,
