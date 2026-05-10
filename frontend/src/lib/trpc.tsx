@@ -6,18 +6,13 @@ import { App } from './App';
 
 const trpc = createTRPCReact();
 
-function getBaseUrl() {
-  if (import.meta.env.DEV) return 'http://localhost:5173';
-  return '';
-}
-
 export function TrpcProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${getBaseUrl()}/trpc`,
+          url: 'http://172.21.47.227:3000/trpc',
         }),
       ],
     })
