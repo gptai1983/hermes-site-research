@@ -5,6 +5,7 @@ import { executeResearchTask } from './services/hermesService.js';
 const t = initTRPC.create();
 
 const sessions: Map<number, { status: string; result?: string; error?: string; prompt?: string }> = new Map();
+const reports: Map<number, { content: string }> = new Map();
 
 export const appRouter = t.router({
   profiles: t.router({
@@ -14,7 +15,8 @@ export const appRouter = t.router({
     create: t.procedure
       .input(z.object({ name: z.string(), url: z.string(), credentials: z.string().optional() }))
       .mutation(async ({ input }) => {
-        return { id: Date.now(), ...input, createdAt: new Date() };
+        const id = Date.now();
+        return { id, name: input.name, url: input.url, createdAt: new Date() };
       }),
     delete: t.procedure
       .input(z.object({ id: z.number() }))
@@ -43,11 +45,12 @@ export const appRouter = t.router({
         
         session.status = 'running';
         
-        executeResearchTask(input.id, session.prompt || 'Привет')
+        executeResearchTask(input.id, session.prompt || 'Ответь кратко')
           .then(result => {
             if (result.success) {
               session.status = 'completed';
               session.result = result.output;
+              reports.set(input.id, { content: result.output || '' });
             } else {
               session.status = 'failed';
               session.error = result.error;
@@ -68,11 +71,10 @@ export const appRouter = t.router({
   }),
   reports: t.router({
     get: t.procedure
-      .input(z.object({ sessionId: z.number() }).nullish())
+      .input(z.object({ sessionId: z.number() }))
       .query(async ({ input }) => {
-        if (!input?.sessionId) return [];
-        const session = sessions.get(input.sessionId);
-        return session?.result ? [{ id: 1, content: session.result }] : [];
+        const report = reports.get(input.sessionId);
+        return report ? [{ id: input.sessionId, content: report.content }] : [];
       }),
   }),
 });
