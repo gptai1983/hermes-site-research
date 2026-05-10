@@ -4,7 +4,7 @@ import { executeResearchTask } from './services/hermesService.js';
 
 const t = initTRPC.create();
 
-const sessions: Map<number, { status: string; result?: string; error?: string }> = new Map();
+const sessions: Map<number, { status: string; result?: string; error?: string; prompt?: string }> = new Map();
 
 export const appRouter = t.router({
   profiles: t.router({
@@ -32,7 +32,7 @@ export const appRouter = t.router({
       .input(z.object({ profileId: z.number(), prompt: z.string(), url: z.string().optional() }))
       .mutation(async ({ input }) => {
         const id = Date.now();
-        sessions.set(id, { status: 'pending' });
+        sessions.set(id, { status: 'pending', prompt: input.prompt });
         return { id, profileId: input.profileId, prompt: input.prompt, status: 'pending', url: input.url, createdAt: new Date() };
       }),
     start: t.procedure
@@ -43,9 +43,7 @@ export const appRouter = t.router({
         
         session.status = 'running';
         
-        const prompt = `Исследуй сайт. Задача: ${session.prompt || 'Собери данные сайта'}. Используй браузер для навигации. Верни результат в JSON формате.`;
-        
-        executeResearchTask(input.id, prompt)
+        executeResearchTask(input.id, session.prompt || 'Привет')
           .then(result => {
             if (result.success) {
               session.status = 'completed';
