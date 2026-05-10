@@ -7,27 +7,35 @@ export interface HermesResult {
   provider?: string;
 }
 
-export async function executeResearchTask(sessionId: number, prompt: string, url?: string): Promise<HermesResult> {
-  const fullPrompt = `Исследуй сайт ${url || 'unknown'}. Задача: ${prompt}. Используй браузер для навигации и сбора данных. Верни результат в JSON формате.`;
+export async function executeResearchTask(sessionId: number, prompt: string): Promise<HermesResult> {
+  console.log(`[HermesService] Starting task ${sessionId}: ${prompt}`);
 
   return new Promise((resolve) => {
     const hermes = spawn('hermes', [
       'agent', 'run',
-      `"${fullPrompt}"`,
+      prompt,
       '--output-format', 'json',
       '--no-stream'
     ], {
       shell: true,
-      env: { ...process.env, HERMES_NO_ANSI: '1' }
+      timeout: 120000,
     });
 
     let output = '';
     let errorOutput = '';
 
-    hermes.stdout.on('data', (data) => { output += data.toString(); });
-    hermes.stderr.on('data', (data) => { errorOutput += data.toString(); });
+    hermes.stdout.on('data', (data) => {
+      output += data.toString();
+      process.stdout.write(`[Hermes] ${data}`);
+    });
+
+    hermes.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+      process.stderr.write(`[Hermes Error] ${data}`);
+    });
 
     hermes.on('close', (code) => {
+      console.log(`[HermesService] Task ${sessionId} finished with code ${code}`);
       if (code === 0) {
         resolve({ success: true, output });
       } else {
@@ -36,7 +44,13 @@ export async function executeResearchTask(sessionId: number, prompt: string, url
     });
 
     hermes.on('error', (err) => {
+      console.error(`[HermesService] Error: ${err.message}`);
       resolve({ success: false, error: err.message });
     });
+
+    setTimeout(() => {
+      hermes.kill();
+      resolve({ success: false, error: 'Timeout after 120 seconds' });
+    }, 120000);
   });
 }
