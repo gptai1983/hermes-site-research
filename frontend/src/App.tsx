@@ -1,5 +1,5 @@
 import { trpc } from './lib/trpc';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export function App() {
   const [url, setUrl] = useState('');
@@ -7,6 +7,7 @@ export function App() {
   const sessions = trpc.sessions.list.useQuery({});
   const createSession = trpc.sessions.create.useMutation();
   const startSession = trpc.sessions.start.useMutation();
+  const continueAfterLogin = trpc.sessions.continueAfterLogin.useMutation();
 
   const handleCreate = async () => {
     if (!prompt.trim()) return;
@@ -24,6 +25,11 @@ export function App() {
     sessions.refetch();
   };
 
+  const handleContinue = async (sessionId: number, task: string) => {
+    await continueAfterLogin.mutateAsync({ id: sessionId, actualTask: task });
+    sessions.refetch();
+  };
+
   return (
     <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
       <h1>Hermes Site Research Hub</h1>
@@ -33,7 +39,7 @@ export function App() {
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com (опционально)"
+          placeholder="https://example.com"
           style={{ width: '100%', padding: '10px' }}
         />
         <textarea
@@ -53,21 +59,21 @@ export function App() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {sessions.data?.map((session) => (
-          <SessionCard key={session.id} session={session} />
+          <SessionCard key={session.id} session={session} onContinue={handleContinue} />
         ))}
       </div>
     </div>
   );
 }
 
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session, onContinue }: { session: any; onContinue: (id: number, task: string) => void }) {
   const getReport = trpc.reports.get.useQuery(
     { sessionId: session.id },
     { enabled: session.status === 'completed' }
   );
   const getLogs = trpc.sessions.logs.useQuery(
     { id: session.id },
-    { enabled: session.status === 'running', refetchInterval: 1000 }
+    { enabled: ['running', 'waiting_for_login'].includes(session.status), refetchInterval: 1000 }
   );
   
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -76,20 +82,23 @@ function SessionCard({ session }: { session: any }) {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [getLogs.data]);
 
-  const statusColor = {
-    pending: '#6c757d',
-    running: '#ffc107',
-    completed: '#28a745',
-    failed: '#dc3545',
-  }[session.status] || '#6c757d';
+  const statusConfig: Record<string, { color: string; label: string }> = {
+    pending: { color: '#6c757d', label: '⏳ Ожидает' },
+    waiting_for_login: { color: '#17a2b8', label: '🔐 Ручной вход' },
+    running: { color: '#ffc107', label: '⏳ Выполняется...' },
+    completed: { color: '#28a745', label: '✅ Готово' },
+    failed: { color: '#dc3545', label: '❌ Ошибка' },
+  };
+
+  const config = statusConfig[session.status] || { color: '#6c757d', label: session.status };
 
   return (
     <div
       style={{
-        border: `2px solid ${session.status === 'running' ? '#ffc107' : '#ccc'}`,
+        border: `2px solid ${['running', 'waiting_for_login'].includes(session.status) ? config.color : '#ccc'}`,
         borderRadius: '8px',
         padding: '15px',
-        background: session.status === 'running' ? '#fffef0' : '#f8f9fa',
+        background: ['running', 'waiting_for_login'].includes(session.status) ? '#fffef0' : '#f8f9fa',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -98,15 +107,44 @@ function SessionCard({ session }: { session: any }) {
           style={{
             padding: '4px 8px',
             borderRadius: '4px',
-            background: statusColor,
+            background: config.color,
             color: 'white',
             fontWeight: 'bold',
           }}
         >
-          {session.status === 'running' ? '⏳ Выполняется...' : session.status}
+          {config.label}
         </span>
       </div>
       <p><strong>Задача:</strong> {session.prompt}</p>
+      
+      {session.status === 'waiting_for_login' && (
+        <div style={{ 
+          marginTop: '10px', 
+          padding: '15px', 
+          background: '#fff3cd', 
+          borderRadius: '4px',
+          border: '2px solid #ffc107'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>🔐 Требуется ручной вход</h3>
+          <p style={{ margin: '0 0 10px 0' }}>1. Открой браузер и зайди на сайт</p>
+          <p style={{ margin: '0 0 10px 0' }}>2. Введи логин/пароль и капчу вручную</p>
+          <p style={{ margin: '0 0 15px 0' }}>3. Нажми кнопку "Я ввёл данные" когда будешь готов</p>
+          <button 
+            onClick={() => onContinue(session.id, session.prompt)}
+            style={{
+              padding: '10px 20px',
+              background: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ✅ Я ввёл данные и готов продолжить
+          </button>
+        </div>
+      )}
       
       {session.status === 'running' && getLogs.data && getLogs.data.length > 0 && (
         <div style={{ 
