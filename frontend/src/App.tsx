@@ -11,13 +11,15 @@ export function App() {
 
   const handleCreate = async () => {
     if (!prompt.trim()) return;
-    const targetUrl = url.trim() || 'https://example.com';
-    const fullPrompt = `Исследуй сайт ${targetUrl}. ${prompt}`;
+    const targetUrl = url.trim();
+    const fullPrompt = targetUrl 
+      ? `${prompt}\n\nЦелевой сайт: ${targetUrl}`
+      : prompt;
     
     const result = await createSession.mutateAsync({
       profileId: 1,
       prompt: fullPrompt,
-      url: targetUrl,
+      url: targetUrl || 'https://example.com',
     });
     await startSession.mutateAsync({ id: result.id });
     setPrompt('');
@@ -39,18 +41,18 @@ export function App() {
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com"
+          placeholder="https://example.com (URL сайта)"
           style={{ width: '100%', padding: '10px' }}
         />
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Что исследовать на сайте?"
+          placeholder="Что сделать? (например: Проанализируй все виды программ на этом сайте)"
           rows={3}
           style={{ width: '100%', padding: '10px' }}
         />
         <button onClick={handleCreate} disabled={createSession.isPending || !prompt.trim()}>
-          Запустить исследование
+          Запустить
         </button>
       </div>
 
@@ -128,7 +130,7 @@ function SessionCard({ session, onContinue }: { session: any; onContinue: (id: n
           <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>🔐 Требуется ручной вход</h3>
           <p style={{ margin: '0 0 10px 0' }}>1. Открой браузер и зайди на сайт</p>
           <p style={{ margin: '0 0 10px 0' }}>2. Введи логин/пароль и капчу вручную</p>
-          <p style={{ margin: '0 0 15px 0' }}>3. Нажми кнопку "Я ввёл данные" когда будешь готов</p>
+          <p style={{ margin: '0 0 15px 0' }}>3. Нажми кнопку когда будешь готов</p>
           <button 
             onClick={() => onContinue(session.id, session.prompt)}
             style={{
@@ -141,7 +143,7 @@ function SessionCard({ session, onContinue }: { session: any; onContinue: (id: n
               fontWeight: 'bold'
             }}
           >
-            ✅ Я ввёл данные и готов продолжить
+            ✅ Я ввёл данные
           </button>
         </div>
       )}
@@ -158,7 +160,7 @@ function SessionCard({ session, onContinue }: { session: any; onContinue: (id: n
           fontFamily: 'monospace',
           whiteSpace: 'pre-wrap'
         }}>
-          <strong>📋 Лог выполнения:</strong>
+          <strong>📋 Лог:</strong>
           {getLogs.data.map((log, i) => (
             <div key={i} style={{ margin: '2px 0' }}>{log}</div>
           ))}
