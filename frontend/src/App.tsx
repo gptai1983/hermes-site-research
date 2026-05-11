@@ -1,5 +1,5 @@
 import { trpc } from './lib/trpc';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function App() {
   const [url, setUrl] = useState('');
@@ -53,59 +53,86 @@ export function App() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {sessions.data?.map((session) => (
-          <SessionCard key={session.id} session={session} />
+          <SessionCard key={session.id} session={session} onUpdate={() => sessions.refetch()} />
         ))}
       </div>
     </div>
   );
 }
 
-function SessionCard({ session }: { session: any }) {
+function SessionCard({ session, onUpdate }: { session: any; onUpdate: () => void }) {
   const getReport = trpc.reports.get.useQuery(
     { sessionId: session.id },
     { enabled: session.status === 'completed' }
   );
 
+  useEffect(() => {
+    if (session.status === 'running') {
+      const interval = setInterval(() => {
+        onUpdate();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [session.status, onUpdate]);
+
+  const statusColor = {
+    pending: '#6c757d',
+    running: '#ffc107',
+    completed: '#28a745',
+    failed: '#dc3545',
+  }[session.status] || '#6c757d';
+
   return (
     <div
       style={{
-        border: '1px solid #ccc',
+        border: `2px solid ${session.status === 'running' ? '#ffc107' : '#ccc'}`,
         borderRadius: '8px',
         padding: '15px',
-        background: session.status === 'running' ? '#fff3cd' : '#f8f9fa',
+        background: session.status === 'running' ? '#fffef0' : '#f8f9fa',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>ID: {session.id}</span>
+        <span style={{ fontSize: '12px', color: '#666' }}>ID: {session.id}</span>
         <span
           style={{
             padding: '4px 8px',
             borderRadius: '4px',
-            background:
-              session.status === 'completed'
-                ? '#28a745'
-                : session.status === 'failed'
-                ? '#dc3545'
-                : '#ffc107',
+            background: statusColor,
             color: 'white',
+            fontWeight: 'bold',
           }}
         >
-          {session.status}
+          {session.status === 'running' ? '⏳ Выполняется...' : session.status}
         </span>
       </div>
       <p><strong>Задача:</strong> {session.prompt}</p>
       
+      {session.status === 'running' && (
+        <div style={{ 
+          marginTop: '10px', 
+          padding: '10px', 
+          background: '#e9ecef', 
+          borderRadius: '4px',
+          fontSize: '12px',
+          color: '#666'
+        }}>
+          ⏳ Hermes выполняет задачу... Ожидание 3 сек...
+        </div>
+      )}
+      
       {session.status === 'completed' && getReport.data?.[0] && (
-        <div style={{ marginTop: '10px', padding: '10px', background: '#e9ecef', borderRadius: '4px' }}>
+        <div style={{ marginTop: '10px', padding: '10px', background: '#d4edda', borderRadius: '4px' }}>
           <strong>Результат:</strong>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px', maxHeight: '300px', overflow: 'auto' }}>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px', maxHeight: '400px', overflow: 'auto' }}>
             {getReport.data[0].content}
           </pre>
         </div>
       )}
       
       {session.error && (
-        <div style={{ color: 'red', marginTop: '10px' }}>Ошибка: {session.error}</div>
+        <div style={{ color: 'red', marginTop: '10px', padding: '10px', background: '#f8d7da', borderRadius: '4px' }}>
+          ❌ Ошибка: {session.error}
+        </div>
       )}
     </div>
   );
