@@ -13,20 +13,21 @@ export async function executeResearchTask(sessionId: number, prompt: string): Pr
   return new Promise((resolve) => {
     const hermes = spawn('hermes', ['-z', prompt], {
       shell: false,
-      timeout: 120000,
     });
 
     let output = '';
     let errorOutput = '';
 
     hermes.stdout.on('data', (data) => {
-      output += data.toString();
-      process.stdout.write(`[Hermes] ${data}`);
+      const text = data.toString();
+      output += text;
+      process.stdout.write(`[Hermes] ${text}`);
     });
 
     hermes.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-      process.stderr.write(`[Hermes Error] ${data}`);
+      const text = data.toString();
+      errorOutput += text;
+      process.stderr.write(`[Hermes Error] ${text}`);
     });
 
     hermes.on('close', (code) => {
@@ -42,10 +43,5 @@ export async function executeResearchTask(sessionId: number, prompt: string): Pr
       console.error(`[HermesService] Error: ${err.message}`);
       resolve({ success: false, error: err.message });
     });
-
-    setTimeout(() => {
-      hermes.kill();
-      resolve({ success: false, error: 'Timeout after 120 seconds' });
-    }, 120000);
   });
 }
