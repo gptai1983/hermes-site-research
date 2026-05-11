@@ -4,7 +4,7 @@ import { executeResearchTask } from './services/hermesService.js';
 
 const t = initTRPC.create();
 
-const sessions: Map<number, { status: string; result?: string; error?: string; prompt?: string; logs?: string[] }> = new Map();
+const sessions: Map<number, { status: string; result?: string; error?: string; prompt?: string; logs?: string[]; waitingForLogin?: boolean }> = new Map();
 const reports: Map<number, { content: string }> = new Map();
 
 export const appRouter = t.router({
@@ -43,9 +43,11 @@ export const appRouter = t.router({
         const session = sessions.get(input.id);
         if (!session) throw new Error('Session not found');
         
-        session.status = 'running';
+        session.status = 'waiting_for_login';
+        session.waitingForLogin = true;
+        session.logs?.push('🔐 Ожидание ручного входа в браузере...');
         
-        executeResearchTask(input.id, session.prompt || 'Ответь кратко', (log) => {
+        executeResearchTask(input.id, `Открой браузер и зайди на ${session.prompt}. Если требуется капча - введи её вручную. Сообщи когда готов.`, (log) => {
           if (!session.logs) session.logs = [];
           session.logs.push(log);
         })
@@ -64,7 +66,38 @@ export const appRouter = t.router({
             session.error = err.message;
           });
         
-        return { success: true, status: 'started' };
+        return { success: true, status: 'waiting_for_login' };
+      }),
+    continueAfterLogin: t.procedure
+      .input(z.object({ id: z.number(), actualTask: z.string() }))
+      .mutation(async ({ input }) => {
+        const session = sessions.get(input.id);
+        if (!session) throw new Error('Session not found');
+        
+        session.status = 'running';
+        session.waitingForLogin = false;
+        session.logs?.push('✅ Вход выполнен! Продолжаю задачу...');
+        
+        executeResearchTask(input.id, input.actualTask, (log) => {
+          if (!session.logs) session.logs = [];
+          session.logs.push(log);
+        })
+          .then(result => {
+            if (result.success) {
+              session.status = 'completed';
+              session.result = result.output;
+              reports.set(input.id, { content: result.output || '' });
+            } else {
+              session.status = 'failed';
+              session.error = result.error;
+            }
+          })
+          .catch(err => {
+            session.status = 'failed';
+            session.error = err.message;
+          });
+        
+        return { success: true };
       }),
     get: t.procedure
       .input(z.object({ id: z.number() }))
