@@ -7,7 +7,9 @@ export interface HermesResult {
   provider?: string;
 }
 
-export async function executeResearchTask(sessionId: number, prompt: string): Promise<HermesResult> {
+type LogCallback = (log: string) => void;
+
+export async function executeResearchTask(sessionId: number, prompt: string, onLog?: LogCallback): Promise<HermesResult> {
   console.log(`[HermesService] Starting task ${sessionId}`);
 
   return new Promise((resolve) => {
@@ -22,12 +24,14 @@ export async function executeResearchTask(sessionId: number, prompt: string): Pr
       const text = data.toString();
       output += text;
       process.stdout.write(`[Hermes] ${text}`);
+      if (onLog) onLog(text);
     });
 
     hermes.stderr.on('data', (data) => {
       const text = data.toString();
       errorOutput += text;
       process.stderr.write(`[Hermes Error] ${text}`);
+      if (onLog) onLog(text);
     });
 
     hermes.on('close', (code) => {
