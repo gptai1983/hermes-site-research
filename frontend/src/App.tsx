@@ -1,5 +1,5 @@
 import { trpc } from './lib/trpc';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function App() {
   const [url, setUrl] = useState('');
@@ -53,27 +53,28 @@ export function App() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {sessions.data?.map((session) => (
-          <SessionCard key={session.id} session={session} onUpdate={() => sessions.refetch()} />
+          <SessionCard key={session.id} session={session} />
         ))}
       </div>
     </div>
   );
 }
 
-function SessionCard({ session, onUpdate }: { session: any; onUpdate: () => void }) {
+function SessionCard({ session }: { session: any }) {
   const getReport = trpc.reports.get.useQuery(
     { sessionId: session.id },
     { enabled: session.status === 'completed' }
   );
-
+  const getLogs = trpc.sessions.logs.useQuery(
+    { id: session.id },
+    { enabled: session.status === 'running', refetchInterval: 1000 }
+  );
+  
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
-    if (session.status === 'running') {
-      const interval = setInterval(() => {
-        onUpdate();
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [session.status, onUpdate]);
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [getLogs.data]);
 
   const statusColor = {
     pending: '#6c757d',
@@ -107,16 +108,23 @@ function SessionCard({ session, onUpdate }: { session: any; onUpdate: () => void
       </div>
       <p><strong>Задача:</strong> {session.prompt}</p>
       
-      {session.status === 'running' && (
+      {session.status === 'running' && getLogs.data && getLogs.data.length > 0 && (
         <div style={{ 
           marginTop: '10px', 
           padding: '10px', 
-          background: '#e9ecef', 
+          background: '#e3f2fd', 
           borderRadius: '4px',
-          fontSize: '12px',
-          color: '#666'
+          fontSize: '11px',
+          maxHeight: '200px',
+          overflow: 'auto',
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap'
         }}>
-          ⏳ Hermes выполняет задачу... Ожидание 3 сек...
+          <strong>📋 Лог выполнения:</strong>
+          {getLogs.data.map((log, i) => (
+            <div key={i} style={{ margin: '2px 0' }}>{log}</div>
+          ))}
+          <div ref={logsEndRef} />
         </div>
       )}
       
